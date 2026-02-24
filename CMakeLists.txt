@@ -7,7 +7,7 @@ include(CMakePackageConfigHelpers)
 option(DARTVM_INSTALL_DARTSDK_BUNDLE
   "Install Dart SDK tools into package for external consumers"
   ON)
-set(DARTSDK_ROOTDIR "${PROJECT_SOURCE_DIR}/../dart-sdk" CACHE FILEPATH
+set(DARTSDK_ROOTDIR "${PROJECT_SOURCE_DIR}/dart-sdk" CACHE FILEPATH
     "Directory that dart-sdk is cloned to")
 set(DARTSDK_BUILD_DIR "ReleaseX64" CACHE STRING
     "Dart SDK out dir name under sdk/out")
