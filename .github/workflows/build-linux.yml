@@ -20,19 +20,44 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Restore dart-sdk/depot_tools cache
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            dart-sdk
+            depot_tools
+          key: ${{ runner.os }}-dartsdk-${{ hashFiles('.dart_version') }}
+          restore-keys: |
+            ${{ runner.os }}-dartsdk-
+
       - name: Verify toolchain
         run: |
           python3 --version
           cmake --version
           ninja --version
 
+      - name: Prepare dart-sdk (cache miss)
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 build_dart_sdk.py \
+            --build-type release \
+            --target libdart_embedder \
+            --dart-sdk-dir dart-sdk
+
+      - name: Prepare dart-sdk (cache hit)
+        if: steps.sdk-cache.outputs.cache-hit == 'true'
+        run: |
+          python3 build_dart_sdk.py \
+            --build-type release \
+            --target libdart_embedder \
+            --dart-sdk-dir dart-sdk \
+            --skip-fetch
+
       - name: Configure
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DDARTVM_AUTO_PREPARE_SDK=ON \
-            -DDARTVM_PREPARE_SDK_BUILD_TYPE=release \
-            -DDARTVM_PREPARE_SDK_TARGETS=libdart_embedder \
             -DDARTVM_INSTALL_DARTSDK_BUNDLE=OFF
 
       - name: Build

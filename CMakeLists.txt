@@ -4,15 +4,6 @@ project(DARTVM_EMBED_LIB VERSION 0.1.0)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-option(DARTVM_AUTO_PREPARE_SDK
-  "Run build_dart_sdk.py from CMake before building library variants"
-  OFF)
-set(DARTVM_PREPARE_SDK_BUILD_TYPE "release" CACHE STRING
-    "Build type used by build_dart_sdk.py (debug/release/all)")
-set_property(CACHE DARTVM_PREPARE_SDK_BUILD_TYPE PROPERTY STRINGS debug release all)
-set(DARTVM_PREPARE_SDK_TARGETS "libdart_embedder" CACHE STRING
-    "Semicolon-separated tools/build.py targets passed to build_dart_sdk.py")
-
 option(DARTVM_INSTALL_DARTSDK_BUNDLE
   "Install Dart SDK tools into package for external consumers"
   ON)
@@ -54,31 +45,7 @@ endif()
 set(DARTSDK_GEN_SNAPSHOT_BIN "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/gen_snapshot" CACHE FILEPATH
     "Path to gen_snapshot executable used to build AOT snapshots for examples")
 
-if(DARTVM_AUTO_PREPARE_SDK)
-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
-  set(_prepare_cmd
-    ${Python3_EXECUTABLE}
-    "${PROJECT_SOURCE_DIR}/build_dart_sdk.py"
-    --build-type "${DARTVM_PREPARE_SDK_BUILD_TYPE}"
-    --dart-sdk-dir "${DARTSDK_ROOTDIR}"
-  )
-  foreach(_target IN LISTS DARTVM_PREPARE_SDK_TARGETS)
-    list(APPEND _prepare_cmd --target "${_target}")
-  endforeach()
-
-  add_custom_target(prepare_dart_sdk
-    COMMAND ${CMAKE_COMMAND} -E chdir "${PROJECT_SOURCE_DIR}/.." ${_prepare_cmd}
-    COMMENT "Preparing dart-sdk + runtime artifacts via build_dart_sdk.py"
-    VERBATIM
-  )
-endif()
-
 add_subdirectory(src)
-
-if(TARGET prepare_dart_sdk)
-  add_dependencies(dartvm_embed_lib_jit prepare_dart_sdk)
-  add_dependencies(dartvm_embed_lib_aot prepare_dart_sdk)
-endif()
 
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
