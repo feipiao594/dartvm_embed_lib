@@ -1,0 +1,56 @@
+name: Build dartvm_embed_lib (Linux)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DEPOT_TOOLS_WIN_TOOLCHAIN: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify toolchain
+        run: |
+          python3 --version
+          cmake --version
+          ninja --version
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDARTVM_AUTO_PREPARE_SDK=ON \
+            -DDARTVM_PREPARE_SDK_BUILD_TYPE=release \
+            -DDARTVM_PREPARE_SDK_TARGETS=libdart_embedder \
+            -DDARTVM_INSTALL_DARTSDK_BUNDLE=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Install
+        run: cmake --install build --prefix build/package
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p build/artifacts/lib
+          cp build/src/libdartvm_embed_lib_jit.a build/artifacts/lib/
+          cp build/src/libdartvm_embed_lib_aot.a build/artifacts/lib/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dartvm_embed_lib-linux
+          path: |
+            build/artifacts
+            build/package
