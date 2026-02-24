@@ -42,6 +42,7 @@ jobs:
         run: |
           python3 build_dart_sdk.py \
             --build-type release \
+            --target create_sdk \
             --target libdart_embedder \
             --dart-sdk-dir dart-sdk
 
@@ -50,6 +51,7 @@ jobs:
         run: |
           python3 build_dart_sdk.py \
             --build-type release \
+            --target create_sdk \
             --target libdart_embedder \
             --dart-sdk-dir dart-sdk \
             --skip-fetch
