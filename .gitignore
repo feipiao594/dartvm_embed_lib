@@ -1,0 +1,4 @@
+build/*
+depot_tools/*
+dart-sdk/*
+.cache/*

@@ -1,0 +1,246 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index fb3ca5fc537..fef1e26c55f 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -127,6 +127,17 @@ group("create_platform_sdk") {
+   public_deps = [ "sdk:create_platform_sdk" ]
+ }
+ 
++group("libdart_embedder") {
++  deps = [
++    "runtime/bin:dart_embedder_runtime_aot_shared",
++    "runtime/bin:dart_embedder_runtime_aot_static",
++    "runtime/bin:dart_embedder_runtime_interp_shared",
++    "runtime/bin:dart_embedder_runtime_interp_static",
++    "runtime/bin:dart_embedder_runtime_jit_shared",
++    "runtime/bin:dart_embedder_runtime_jit_static",
++  ]
++}
++
+ group("dart2js") {
+   import("runtime/runtime_args.gni")
+   if (dart_target_arch != "ia32" && dart_target_arch != "x86") {
+diff --git a/runtime/bin/BUILD.gn b/runtime/bin/BUILD.gn
+index 57d7006036d..50e541df29c 100644
+--- a/runtime/bin/BUILD.gn
++++ b/runtime/bin/BUILD.gn
+@@ -1224,3 +1224,219 @@ static_library("dart_embedder_runtime_jit") {
+   output_name = "dart_embedder_runtime_jit"
+   deps = [ ":dart_embedder_runtime_jit_set" ]
+ }
++
++# A full-featured embedder runtime library matrix.
++# These targets are intended for external embedding scenarios where callers
++# need the standalone runtime/bin loading pipeline as a library artifact.
++source_set("dart_embedder_runtime_jit_full_set") {
++  include_dirs = [
++    "..",
++    "//third_party/boringssl/src/include",
++    "//third_party",
++  ]
++
++  sources = [
++    "builtin.cc",
++    "dart_embedder_api_impl.cc",
++    "dfe.cc",
++    "dfe.h",
++    "error_exit.cc",
++    "error_exit.h",
++    "gzip.cc",
++    "gzip.h",
++    "loader.cc",
++    "loader.h",
++    "main_options.cc",
++    "main_options.h",
++    "options.cc",
++    "options.h",
++    "snapshot_utils.cc",
++    "snapshot_utils.h",
++    "vmservice_impl.cc",
++    "vmservice_impl.h",
++  ]
++
++  deps = [
++    ":dart_kernel_platform_cc",
++    ":dart_snapshot_cc",
++    ":standalone_dart_io",
++    "..:libdart_jit",
++    "../platform:libdart_platform_jit",
++    "//third_party/boringssl",
++    "//third_party/zlib",
++  ]
++
++  if (dart_runtime_mode != "release") {
++    deps += [ "../observatory:standalone_observatory_archive" ]
++  } else {
++    sources += [ "observatory_assets_empty.cc" ]
++  }
++
++  if (is_win) {
++    libs = [
++      "ole32.lib",
++      "iphlpapi.lib",
++      "psapi.lib",
++      "ws2_32.lib",
++      "Rpcrt4.lib",
++      "shlwapi.lib",
++      "winmm.lib",
++    ]
++  }
++}
++
++source_set("dart_embedder_runtime_aot_full_set") {
++  include_dirs = [
++    "..",
++    "//third_party/boringssl/src/include",
++    "//third_party",
++  ]
++
++  sources = [
++    "builtin.cc",
++    "dart_embedder_api_impl.cc",
++    "error_exit.cc",
++    "error_exit.h",
++    "gzip.cc",
++    "gzip.h",
++    "loader.cc",
++    "loader.h",
++    "main_options.cc",
++    "main_options.h",
++    "options.cc",
++    "options.h",
++    "snapshot_empty.cc",
++    "snapshot_utils.cc",
++    "snapshot_utils.h",
++    "vmservice_impl.cc",
++    "vmservice_impl.h",
++  ]
++
++  deps = [
++    ":elf_loader",
++    ":standalone_dart_io",
++    "..:libdart_aotruntime",
++    "../platform:libdart_platform_aotruntime",
++    "//third_party/boringssl",
++    "//third_party/zlib",
++  ]
++
++  if (dart_runtime_mode != "release") {
++    deps += [ "../observatory:standalone_observatory_archive" ]
++  } else {
++    sources += [ "observatory_assets_empty.cc" ]
++  }
++
++  if (is_win) {
++    libs = [
++      "ole32.lib",
++      "iphlpapi.lib",
++      "psapi.lib",
++      "ws2_32.lib",
++      "Rpcrt4.lib",
++      "shlwapi.lib",
++      "winmm.lib",
++    ]
++  }
++}
++
++# AOT embedder runtime with dartaotruntime-equivalent precompiled semantics.
++source_set("dart_embedder_runtime_aot_precompiled_full_set") {
++  include_dirs = [
++    "..",
++    "//third_party/boringssl/src/include",
++    "//third_party",
++  ]
++
++  configs += [ "..:dart_aotruntime_config" ]
++
++  sources = [
++    "builtin.cc",
++    "dart_embedder_api_impl.cc",
++    "error_exit.cc",
++    "error_exit.h",
++    "gzip.cc",
++    "gzip.h",
++    "loader.cc",
++    "loader.h",
++    "main_options.cc",
++    "main_options.h",
++    "options.cc",
++    "options.h",
++    "snapshot_empty.cc",
++    "snapshot_utils.cc",
++    "snapshot_utils.h",
++    "vmservice_impl.cc",
++    "vmservice_impl.h",
++  ]
++
++  deps = [
++    ":elf_loader",
++    ":native_assets_api",
++    ":standalone_dart_io",
++    "..:libdart_aotruntime",
++    "../platform:libdart_platform_aotruntime",
++    "//third_party/boringssl",
++    "//third_party/zlib",
++  ]
++
++  if (dart_runtime_mode != "release") {
++    deps += [ "../observatory:standalone_observatory_archive" ]
++  } else {
++    sources += [ "observatory_assets_empty.cc" ]
++  }
++
++  if (is_win) {
++    libs = [
++      "ole32.lib",
++      "iphlpapi.lib",
++      "psapi.lib",
++      "ws2_32.lib",
++      "Rpcrt4.lib",
++      "shlwapi.lib",
++      "winmm.lib",
++    ]
++  }
++}
++
++static_library("dart_embedder_runtime_jit_static") {
++  complete_static_lib = true
++  output_name = "dart_embedder_runtime_jit_static"
++  deps = [ ":dart_embedder_runtime_jit_full_set" ]
++}
++
++shared_library("dart_embedder_runtime_jit_shared") {
++  output_name = "dart_embedder_runtime_jit_shared"
++  deps = [ ":dart_embedder_runtime_jit_full_set" ]
++}
++
++static_library("dart_embedder_runtime_aot_static") {
++  complete_static_lib = true
++  output_name = "dart_embedder_runtime_aot_static"
++  deps = [ ":dart_embedder_runtime_aot_full_set" ]
++}
++
++shared_library("dart_embedder_runtime_aot_shared") {
++  output_name = "dart_embedder_runtime_aot_shared"
++  deps = [ ":dart_embedder_runtime_aot_full_set" ]
++}
++
++static_library("dart_embedder_runtime_aot_precompiled_static") {
++  complete_static_lib = true
++  output_name = "dart_embedder_runtime_aot_precompiled_static"
++  deps = [ ":dart_embedder_runtime_aot_precompiled_full_set" ]
++}
++
++shared_library("dart_embedder_runtime_aot_precompiled_shared") {
++  output_name = "dart_embedder_runtime_aot_precompiled_shared"
++  deps = [ ":dart_embedder_runtime_aot_precompiled_full_set" ]
++}
++
++# "Interpreter mode" for embedder consumers maps to the JIT runtime pipeline.
++group("dart_embedder_runtime_interp_static") {
++  deps = [ ":dart_embedder_runtime_jit_static" ]
++}
++
++group("dart_embedder_runtime_interp_shared") {
++  deps = [ ":dart_embedder_runtime_jit_shared" ]
++}
