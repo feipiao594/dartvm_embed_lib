@@ -47,6 +47,13 @@ set(DARTSDK_GEN_SNAPSHOT_BIN "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/gen_snapshot"
 set(DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/gen_snapshot" CACHE FILEPATH
     "Path to runtime-matching gen_snapshot binary that should be packaged for AOT")
 
+
+function(_dartvm_require_file path_var desc)
+  if(NOT EXISTS "${${path_var}}")
+    message(FATAL_ERROR "Missing required ${desc}: ${${path_var}}")
+  endif()
+endfunction()
+
 add_subdirectory(src)
 
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
@@ -55,14 +62,37 @@ install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
 
 if(DARTVM_INSTALL_DARTSDK_BUNDLE)
   set(_dartsdk_bundle_sdk_dir "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/dart-sdk")
-  if(NOT EXISTS "${_dartsdk_bundle_sdk_dir}/bin/dart")
-    message(FATAL_ERROR
-      "DARTVM_INSTALL_DARTSDK_BUNDLE=ON but bundled dart-sdk not found at ${_dartsdk_bundle_sdk_dir}")
+  set(_bundle_dart_bin "${_dartsdk_bundle_sdk_dir}/bin/dart")
+  set(_bundle_dartaotruntime_bin "${_dartsdk_bundle_sdk_dir}/bin/dartaotruntime")
+  set(_bundle_gen_kernel_snapshot "${_dartsdk_bundle_sdk_dir}/bin/snapshots/gen_kernel_aot.dart.snapshot")
+  set(_bundle_vm_platform_dill "${_dartsdk_bundle_sdk_dir}/lib/_internal/vm_platform_strong.dill")
+
+  _dartvm_require_file(_bundle_dart_bin "bundled dart binary")
+  _dartvm_require_file(_bundle_dartaotruntime_bin "bundled dartaotruntime binary")
+  _dartvm_require_file(_bundle_gen_kernel_snapshot "bundled gen_kernel snapshot")
+  _dartvm_require_file(_bundle_vm_platform_dill "bundled vm platform dill")
+  _dartvm_require_file(DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN "runtime gen_snapshot")
+
+  if(DARTVM_USE_STANDALONE_LIBDART)
+    set(_bundle_jit_runtime_lib "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/libdart_jit.a")
+    set(_bundle_aot_runtime_lib "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/libdart_aotruntime.a")
+    set(_bundle_jit_extra_obj "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/bin/elf_loader.elf_loader.o")
+    set(_bundle_aot_extra_obj "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/bin/elf_loader.virtual_memory_posix.o")
+  else()
+    set(_bundle_jit_runtime_lib "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/bin/libdart_embedder_runtime_jit_static.a")
+    set(_bundle_aot_runtime_lib "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/bin/libdart_embedder_runtime_aot_precompiled_static.a")
+    set(_bundle_jit_extra_obj "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/bin/dart_set.dartdev_isolate.o")
+    set(_bundle_aot_extra_obj "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/obj/runtime/bin/elf_loader.virtual_memory_posix.o")
   endif()
-  if(NOT EXISTS "${DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN}")
-    message(FATAL_ERROR
-      "DARTVM_INSTALL_DARTSDK_BUNDLE=ON but runtime gen_snapshot not found at ${DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN}")
-  endif()
+  set(_bundle_libcxx "${DART_DIR}/buildtools/linux-x64/clang/lib/x86_64-unknown-linux-gnu/libc++.a")
+  set(_bundle_libunwind "${DART_DIR}/buildtools/linux-x64/clang/lib/x86_64-unknown-linux-gnu/libunwind.a")
+
+  _dartvm_require_file(_bundle_jit_runtime_lib "JIT runtime static library")
+  _dartvm_require_file(_bundle_aot_runtime_lib "AOT runtime static library")
+  _dartvm_require_file(_bundle_jit_extra_obj "JIT runtime support object")
+  _dartvm_require_file(_bundle_libcxx "libc++ static library")
+  _dartvm_require_file(_bundle_libunwind "libunwind static library")
+
   install(DIRECTORY "${_dartsdk_bundle_sdk_dir}/"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/dart-sdk/out/${DARTSDK_BUILD_DIR}/dart-sdk"
     USE_SOURCE_PERMISSIONS

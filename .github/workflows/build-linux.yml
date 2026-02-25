@@ -67,7 +67,7 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DDARTVM_INSTALL_DARTSDK_BUNDLE=OFF
+            -DDARTVM_INSTALL_DARTSDK_BUNDLE=ON
 
       - name: Build
         run: cmake --build build --parallel
@@ -75,16 +75,16 @@ jobs:
       - name: Install
         run: cmake --install build --prefix build/package
 
-      - name: Collect artifacts
+      - name: Verify packaged bundle
         run: |
-          mkdir -p build/artifacts/lib
-          cp build/src/libdartvm_embed_lib_jit.a build/artifacts/lib/
-          cp build/src/libdartvm_embed_lib_aot.a build/artifacts/lib/
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/dart
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/dartaotruntime
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/snapshots/gen_kernel_aot.dart.snapshot
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/lib/_internal/vm_platform_strong.dill
+          test -f build/package/share/dartvm_embed_lib/runtime/ReleaseX64/gen_snapshot
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: dartvm_embed_lib-linux
-          path: |
-            build/artifacts
-            build/package
+          path: build/package
