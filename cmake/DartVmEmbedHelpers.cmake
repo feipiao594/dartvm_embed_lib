@@ -65,9 +65,18 @@ function(dartvm_embed_add_program_target target_name)
 
     set(_kernel_out "${CMAKE_CURRENT_BINARY_DIR}/${target_name}_kernel_aot.dill")
 
+    set(_kernel_driver "${DARTVM_EMBED_DART_BIN}")
+    if(DARTVM_EMBED_GEN_KERNEL_DART MATCHES "\.snapshot$")
+      if(NOT EXISTS "${DARTVM_EMBED_DARTAOTRUNTIME_BIN}")
+        message(FATAL_ERROR
+          "dartaotruntime not found for snapshot gen_kernel: ${DARTVM_EMBED_DARTAOTRUNTIME_BIN}")
+      endif()
+      set(_kernel_driver "${DARTVM_EMBED_DARTAOTRUNTIME_BIN}")
+    endif()
+
     add_custom_command(
       OUTPUT "${_kernel_out}"
-      COMMAND "${DARTVM_EMBED_DART_BIN}" "${DARTVM_EMBED_GEN_KERNEL_DART}"
+      COMMAND "${_kernel_driver}" "${DARTVM_EMBED_GEN_KERNEL_DART}"
               --platform "${DARTVM_EMBED_VM_PLATFORM_DILL}"
               --aot
               --tfa

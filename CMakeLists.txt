@@ -44,6 +44,8 @@ if(BUILD_SAMPLES AND DARTSDK_DART_BIN MATCHES ".*/out/[^/]+/dart$")
 endif()
 set(DARTSDK_GEN_SNAPSHOT_BIN "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/gen_snapshot" CACHE FILEPATH
     "Path to gen_snapshot executable used to build AOT snapshots for examples")
+set(DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/gen_snapshot" CACHE FILEPATH
+    "Path to runtime-matching gen_snapshot binary that should be packaged for AOT")
 
 add_subdirectory(src)
 
@@ -52,15 +54,21 @@ install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
 )
 
 if(DARTVM_INSTALL_DARTSDK_BUNDLE)
-  set(_dartsdk_bundle_dir "${DART_DIR}")
-  if(NOT EXISTS "${_dartsdk_bundle_dir}/out/${DARTSDK_BUILD_DIR}/dart-sdk/bin/dart")
+  set(_dartsdk_bundle_sdk_dir "${DART_DIR}/out/${DARTSDK_BUILD_DIR}/dart-sdk")
+  if(NOT EXISTS "${_dartsdk_bundle_sdk_dir}/bin/dart")
     message(FATAL_ERROR
-      "DARTVM_INSTALL_DARTSDK_BUNDLE=ON but dart-sdk bundle not found at ${_dartsdk_bundle_dir}")
+      "DARTVM_INSTALL_DARTSDK_BUNDLE=ON but bundled dart-sdk not found at ${_dartsdk_bundle_sdk_dir}")
   endif()
-  install(DIRECTORY "${_dartsdk_bundle_dir}/"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/dart-sdk"
+  if(NOT EXISTS "${DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN}")
+    message(FATAL_ERROR
+      "DARTVM_INSTALL_DARTSDK_BUNDLE=ON but runtime gen_snapshot not found at ${DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN}")
+  endif()
+  install(DIRECTORY "${_dartsdk_bundle_sdk_dir}/"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/dart-sdk/out/${DARTSDK_BUILD_DIR}/dart-sdk"
     USE_SOURCE_PERMISSIONS
   )
+  install(PROGRAMS "${DARTSDK_RUNTIME_GEN_SNAPSHOT_BIN}"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/runtime/${DARTSDK_BUILD_DIR}")
 endif()
 
 install(EXPORT dartvm_embed_libTargets

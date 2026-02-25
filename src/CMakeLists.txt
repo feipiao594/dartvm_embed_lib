@@ -47,8 +47,31 @@ function(_dartvm_embed_configure_variant flavor out_runtime_lib out_extra_objs)
   set(${out_extra_objs} "${_runtime_extra_objects}" PARENT_SCOPE)
 endfunction()
 
+function(_dartvm_embed_installable_path input_file out_install_rel)
+  get_filename_component(_name "${input_file}" NAME)
+  set(_install_rel "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/runtime/${DARTSDK_BUILD_DIR}/${_name}")
+  install(FILES "${input_file}"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/runtime/${DARTSDK_BUILD_DIR}")
+  set(${out_install_rel} "${_install_rel}" PARENT_SCOPE)
+endfunction()
+
 function(_dartvm_embed_add_variant flavor)
   _dartvm_embed_configure_variant(${flavor} _runtime_lib _runtime_extra_objects)
+
+  _dartvm_embed_installable_path("${_runtime_lib}" _runtime_lib_install_rel)
+  set(_runtime_lib_links
+    "$<BUILD_INTERFACE:${_runtime_lib}>"
+    "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${_runtime_lib_install_rel}>"
+  )
+
+  set(_runtime_extra_obj_links)
+  foreach(_obj IN LISTS _runtime_extra_objects)
+    _dartvm_embed_installable_path("${_obj}" _obj_install_rel)
+    list(APPEND _runtime_extra_obj_links
+      "$<BUILD_INTERFACE:${_obj}>"
+      "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${_obj_install_rel}>"
+    )
+  endforeach()
 
   set(_target "dartvm_embed_lib_${flavor}")
   add_library(${_target} STATIC dartvm_embed_lib.cpp)
@@ -88,19 +111,33 @@ function(_dartvm_embed_add_variant flavor)
       ${CMAKE_DL_LIBS}
     )
 
+    set(_clang_libcxx "${DART_DIR}/buildtools/linux-x64/clang/lib/x86_64-unknown-linux-gnu/libc++.a")
+    set(_clang_libunwind "${DART_DIR}/buildtools/linux-x64/clang/lib/x86_64-unknown-linux-gnu/libunwind.a")
+    if(NOT EXISTS "${_clang_libcxx}")
+      message(FATAL_ERROR "Missing required runtime dep: ${_clang_libcxx}")
+    endif()
+    if(NOT EXISTS "${_clang_libunwind}")
+      message(FATAL_ERROR "Missing required runtime dep: ${_clang_libunwind}")
+    endif()
+
+    _dartvm_embed_installable_path("${_clang_libcxx}" _clang_libcxx_install_rel)
+    _dartvm_embed_installable_path("${_clang_libunwind}" _clang_libunwind_install_rel)
+
     target_link_libraries(${_target} PUBLIC
       "-Wl,--whole-archive"
-      "${_runtime_lib}"
+      ${_runtime_lib_links}
       "-Wl,--no-whole-archive"
-      "${DART_DIR}/buildtools/linux-x64/clang/lib/x86_64-unknown-linux-gnu/libc++.a"
-      "${DART_DIR}/buildtools/linux-x64/clang/lib/x86_64-unknown-linux-gnu/libunwind.a"
+      "$<BUILD_INTERFACE:${_clang_libcxx}>"
+      "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${_clang_libcxx_install_rel}>"
+      "$<BUILD_INTERFACE:${_clang_libunwind}>"
+      "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${_clang_libunwind_install_rel}>"
     )
   else()
-    target_link_libraries(${_target} PUBLIC "${_runtime_lib}")
+    target_link_libraries(${_target} PUBLIC ${_runtime_lib_links})
   endif()
 
-  if(_runtime_extra_objects)
-    target_link_libraries(${_target} PUBLIC ${_runtime_extra_objects})
+  if(_runtime_extra_obj_links)
+    target_link_libraries(${_target} PUBLIC ${_runtime_extra_obj_links})
   endif()
 
   install(TARGETS ${_target}
