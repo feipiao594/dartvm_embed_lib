@@ -194,14 +194,47 @@ def build_targets(
     verbose: bool,
 ) -> None:
     for mode in build_types:
-        for target in targets:
-            log(f"[info] building target={target} mode={mode}")
-            run(
-                [sys.executable, "tools/build.py", "-m", mode, target],
-                cwd=sdk_repo,
-                env=env,
-                verbose=verbose,
-            )
+        log(f"[info] building mode={mode} targets={','.join(targets)}")
+        run(
+            [sys.executable, "tools/build.py", "-m", mode, *targets],
+            cwd=sdk_repo,
+            env=env,
+            verbose=verbose,
+        )
+
+
+def verify_embedder_archives(sdk_repo: Path) -> None:
+    expected = (
+        "libdart_embedder_runtime_jit_static.a",
+        "libdart_embedder_runtime_aot_precompiled_static.a",
+    )
+    out_root = sdk_repo / "out"
+    found_paths: dict[str, Path] = {}
+    for out_dir in sorted(out_root.glob("Release*")):
+        bin_dir = out_dir / "obj" / "runtime" / "bin"
+        for name in expected:
+            candidate = bin_dir / name
+            if candidate.exists():
+                found_paths[name] = candidate
+
+    missing = [name for name in expected if name not in found_paths]
+    if not missing:
+        for name in expected:
+            log(f"[info] found: {found_paths[name]}")
+        return
+
+    observed = []
+    for out_dir in sorted(out_root.glob("Release*")):
+        bin_dir = out_dir / "obj" / "runtime" / "bin"
+        if bin_dir.exists():
+            observed.extend(str(p) for p in bin_dir.glob("libdart_embedder_runtime*.a"))
+    observed_text = "\n".join(observed) if observed else "(none)"
+    raise RuntimeError(
+        "Missing required embedder runtime archives:\n"
+        + "\n".join(f"  - {m}" for m in missing)
+        + "\nObserved runtime archives:\n"
+        + observed_text
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -217,7 +250,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--target",
         action="append",
-        default=["libdart_embedder"],
+        default=[],
         help=(
             "Build target for tools/build.py (repeatable). "
             "Default: libdart_embedder"
@@ -281,7 +314,8 @@ def main() -> int:
     sdk_repo = dart_sdk_dir / "sdk"
     apply_patch(root, sdk_repo, patch_file, env, args.verbose, args.skip_patch)
 
-    targets = list(dict.fromkeys(args.target))
+    requested_targets = args.target if args.target else ["libdart_embedder"]
+    targets = list(dict.fromkeys(requested_targets))
     build_targets(
         sdk_repo,
         iter_build_types(args.build_type),
@@ -289,6 +323,12 @@ def main() -> int:
         env,
         args.verbose,
     )
+    if (
+        "libdart_embedder" in targets
+        or "runtime/bin:dart_embedder_runtime_jit_static" in targets
+        or "runtime/bin:dart_embedder_runtime_aot_precompiled_static" in targets
+    ):
+        verify_embedder_archives(sdk_repo)
 
     log("[done] Dart SDK ready and static-link target build finished.")
     return 0

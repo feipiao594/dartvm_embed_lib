@@ -43,7 +43,8 @@ jobs:
           python3 build_dart_sdk.py \
             --build-type release \
             --target create_sdk \
-            --target libdart_embedder \
+            --target runtime/bin:dart_embedder_runtime_jit_static \
+            --target runtime/bin:dart_embedder_runtime_aot_precompiled_static \
             --dart-sdk-dir dart-sdk
 
       - name: Prepare dart-sdk (cache hit)
@@ -52,9 +53,15 @@ jobs:
           python3 build_dart_sdk.py \
             --build-type release \
             --target create_sdk \
-            --target libdart_embedder \
+            --target runtime/bin:dart_embedder_runtime_jit_static \
+            --target runtime/bin:dart_embedder_runtime_aot_precompiled_static \
             --dart-sdk-dir dart-sdk \
             --skip-fetch
+
+      - name: Verify required dart runtime archives
+        run: |
+          test -f dart-sdk/sdk/out/ReleaseX64/obj/runtime/bin/libdart_embedder_runtime_jit_static.a
+          test -f dart-sdk/sdk/out/ReleaseX64/obj/runtime/bin/libdart_embedder_runtime_aot_precompiled_static.a
 
       - name: Configure
         run: |
