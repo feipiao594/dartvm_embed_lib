@@ -1,0 +1,95 @@
+name: Release dartvm_embed_lib (Linux)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-linux:
+    runs-on: ubuntu-latest
+    env:
+      DEPOT_TOOLS_WIN_TOOLCHAIN: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Restore dart-sdk/depot_tools cache
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            dart-sdk
+            depot_tools
+          key: ${{ runner.os }}-dartsdk-${{ hashFiles('.dart_version') }}
+          restore-keys: |
+            ${{ runner.os }}-dartsdk-
+
+      - name: Verify toolchain
+        run: |
+          python3 --version
+          cmake --version
+          ninja --version
+
+      - name: Prepare dart-sdk (cache miss)
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 build_dart_sdk.py \
+            --build-type release \
+            --target create_sdk \
+            --target runtime/bin:dart_embedder_runtime_jit_static \
+            --target runtime/bin:dart_embedder_runtime_aot_precompiled_static \
+            --dart-sdk-dir dart-sdk
+
+      - name: Prepare dart-sdk (cache hit)
+        if: steps.sdk-cache.outputs.cache-hit == 'true'
+        run: |
+          python3 build_dart_sdk.py \
+            --build-type release \
+            --target create_sdk \
+            --target runtime/bin:dart_embedder_runtime_jit_static \
+            --target runtime/bin:dart_embedder_runtime_aot_precompiled_static \
+            --dart-sdk-dir dart-sdk \
+            --skip-fetch
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDARTVM_INSTALL_DARTSDK_BUNDLE=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Install
+        run: cmake --install build --prefix build/package
+
+      - name: Verify packaged bundle
+        run: |
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/dart
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/dartaotruntime
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/snapshots/gen_kernel_aot.dart.snapshot
+          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/lib/_internal/vm_platform_strong.dill
+          test -f build/package/share/dartvm_embed_lib/runtime/ReleaseX64/gen_snapshot
+
+      - name: Archive package
+        run: |
+          TAG="${GITHUB_REF_NAME:-manual}"
+          mkdir -p dist/stage/dartvm_embed_lib
+          cp -a build/package/. dist/stage/dartvm_embed_lib/
+          tar -C dist/stage -czf "dist/dartvm_embed_lib-${TAG}-linux-x64.tar.gz" dartvm_embed_lib
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tar.gz
+          generate_release_notes: true
