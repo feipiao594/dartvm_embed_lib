@@ -79,3 +79,8 @@ add_dependencies(my_runner my_program_artifact)
 `dartvm_embed_add_program_target` flavor behavior:
 - `jit`: generates kernel `program.bin`
 - `aot`: generates app-aot-elf `program.bin`
+
+
+## Internal Design Doc (ZH)
+
+- `docs/IMPLEMENTATION_ZH.md`: implementation details, packaging rationale, known pitfalls, and VM Service roadmap.

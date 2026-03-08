@@ -2,3 +2,5 @@ build/*
 depot_tools/*
 dart-sdk/*
 .cache/*
+dartvm_embeding_example/*
+lib_install/*

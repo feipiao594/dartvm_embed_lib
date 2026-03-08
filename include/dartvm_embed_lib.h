@@ -4,6 +4,7 @@
 
 typedef struct _Dart_Isolate* Dart_Isolate;
 typedef struct _Dart_Handle* Dart_Handle;
+typedef bool (*DartVmEmbedFileModifiedCallback)(const char* url, int64_t since);
 
 #if defined(_WIN32)
   #if defined(DARTVM_EMBED_LIB_EXPORTING)
@@ -51,6 +52,16 @@ DARTVM_EMBED_LIB_EXPORT Dart_Isolate DartVmEmbed_CreateIsolateFromKernel(
     const char* name,
     const uint8_t* kernel_buffer,
     intptr_t kernel_buffer_size,
+    void* isolate_group_data,
+    void* isolate_data,
+    char** error);
+
+// Creates a root isolate group from a Dart source file path.
+// JIT only. This compiles source to kernel through the embedded frontend path.
+DARTVM_EMBED_LIB_EXPORT Dart_Isolate DartVmEmbed_CreateIsolateFromSource(
+    const char* script_path,
+    const char* script_uri,
+    const char* name,
     void* isolate_group_data,
     void* isolate_data,
     char** error);
@@ -115,8 +126,24 @@ DARTVM_EMBED_LIB_EXPORT bool DartVmEmbed_RunRootEntryOnIsolate(
     const char* entry_name,
     char** error);
 
+// Installs file-modified callback used by VM reload checks.
+// This is mainly relevant for JIT + VM service initiated hot reload workflow.
+// Pass nullptr to clear callback.
+DARTVM_EMBED_LIB_EXPORT bool DartVmEmbed_SetFileModifiedCallback(
+    DartVmEmbedFileModifiedCallback callback,
+    char** error);
+
+// Returns whether current isolate is in reload state.
+DARTVM_EMBED_LIB_EXPORT bool DartVmEmbed_IsReloading(void);
+
+// Service-message helpers for debug loop integration.
+DARTVM_EMBED_LIB_EXPORT bool DartVmEmbed_HasServiceMessages(void);
+DARTVM_EMBED_LIB_EXPORT bool DartVmEmbed_HandleServiceMessages(void);
+
 // Runs the isolate message loop until completion.
 DARTVM_EMBED_LIB_EXPORT Dart_Handle DartVmEmbed_RunLoop(void);
+DARTVM_EMBED_LIB_EXPORT bool DartVmEmbed_RunLoopOnIsolate(Dart_Isolate isolate,
+                                                          char** error);
 
 // Shuts down current isolate.
 DARTVM_EMBED_LIB_EXPORT void DartVmEmbed_ShutdownIsolate(void);

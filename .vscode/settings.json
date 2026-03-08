@@ -1,0 +1,8 @@
+{
+  "files.exclude": {
+    "**/.cache/**": true,
+    "**/dart-sdk/**": false,
+    "**/depot_tools/**": true,
+    "**/lib_install/**": true
+  }
+}

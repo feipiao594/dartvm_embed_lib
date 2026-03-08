@@ -1,0 +1,4 @@
+analyzer:
+  exclude:
+    - "dart-sdk/**"
+    - "lib_install/**"

@@ -91,10 +91,10 @@ function(_dartvm_embed_add_variant flavor)
     __STDC_CONSTANT_MACROS
   )
 
-  if(NOT DARTVM_USE_STANDALONE_LIBDART)
-    target_compile_definitions(${_target} PRIVATE
-      DARTVM_EMBED_ENABLE_FULL_ISOLATE_SETUP
-    )
+  if(DARTVM_USE_STANDALONE_LIBDART)
+    message(FATAL_ERROR
+      "DARTVM_USE_STANDALONE_LIBDART=ON is not supported in this project mode. "
+      "The embedder now always requires full isolate setup (runtime/bin pipeline).")
   endif()
 
   if(flavor STREQUAL "aot")

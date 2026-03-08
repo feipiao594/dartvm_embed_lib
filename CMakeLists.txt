@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 project(DARTVM_EMBED_LIB VERSION 0.1.0)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+include(CTest)
 
 option(DARTVM_INSTALL_DARTSDK_BUNDLE
   "Install Dart SDK tools into package for external consumers"
@@ -55,6 +56,9 @@ function(_dartvm_require_file path_var desc)
 endfunction()
 
 add_subdirectory(src)
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()
 
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
