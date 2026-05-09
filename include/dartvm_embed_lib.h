@@ -66,23 +66,33 @@ DARTVM_EMBED_LIB_EXPORT Dart_Isolate DartVmEmbed_CreateIsolateFromSource(
     void* isolate_data,
     char** error);
 
+// Creates a root isolate group from an AppJIT snapshot file (JIT only).
+// The snapshot file must be a JIT app snapshot produced by the Dart SDK.
+// This call may initialize the VM with the snapshot's VM snapshot pieces.
+DARTVM_EMBED_LIB_EXPORT Dart_Isolate DartVmEmbed_CreateIsolateFromJitSnapshotFile(
+    const char* snapshot_path,
+    const char* script_uri,
+    const char* name,
+    void* isolate_group_data,
+    void* isolate_data,
+    char** error);
+
+// Creates a root isolate group from an app-aot-elf snapshot file (AOT only).
+// This call may initialize the VM with the snapshot's VM snapshot pieces.
+DARTVM_EMBED_LIB_EXPORT Dart_Isolate DartVmEmbed_CreateIsolateFromAotSnapshotFile(
+    const char* aot_elf_path,
+    const char* script_uri,
+    const char* name,
+    void* isolate_group_data,
+    void* isolate_data,
+    char** error);
+
 // Creates a root isolate group from app snapshot pieces (AOT/AppJIT style).
 DARTVM_EMBED_LIB_EXPORT Dart_Isolate DartVmEmbed_CreateIsolateFromAppSnapshot(
     const char* script_uri,
     const char* name,
     const uint8_t* isolate_snapshot_data,
     const uint8_t* isolate_snapshot_instructions,
-    void* isolate_group_data,
-    void* isolate_data,
-    char** error);
-
-// Creates a root isolate from a program file.
-// - jit runtime: expects a kernel file (for example .dill)
-// - aot runtime: expects an app-aot-elf file (for example .aot)
-// This function also initializes VM when needed.
-DARTVM_EMBED_LIB_EXPORT Dart_Isolate DartVmEmbed_CreateIsolateFromProgramFile(
-    const char* program_path,
-    const char* script_uri,
     void* isolate_group_data,
     void* isolate_data,
     char** error);

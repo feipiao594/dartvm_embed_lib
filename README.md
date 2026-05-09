@@ -27,7 +27,6 @@ Public header: `include/dartvm_embed_lib.h`
 - `DartVmEmbed_Cleanup`
 - `DartVmEmbed_CreateIsolateFromKernel`
 - `DartVmEmbed_CreateIsolateFromAppSnapshot`
-- `DartVmEmbed_CreateIsolateFromProgramFile`
 - `DartVmEmbed_RunEntry`
 - `DartVmEmbed_RunLoop`
 - `DartVmEmbed_ShutdownIsolate`

@@ -37,16 +37,16 @@ bool TestCleanupWithoutInit() {
   return pass;
 }
 
-bool TestProgramPathValidation() {
+bool TestCreateFromKernelValidation() {
   char* error = nullptr;
-  Dart_Isolate isolate = DartVmEmbed_CreateIsolateFromProgramFile(
-      nullptr, nullptr, nullptr, nullptr, &error);
+  Dart_Isolate isolate = DartVmEmbed_CreateIsolateFromKernel(
+      nullptr, nullptr, nullptr, 0, nullptr, nullptr, &error);
   const bool pass = Expect(isolate == nullptr,
-                           "CreateIsolateFromProgramFile(nullptr) should fail") &&
+                           "CreateIsolateFromKernel(nullptr) should fail") &&
                     Expect(error != nullptr,
-                           "CreateIsolateFromProgramFile(nullptr) should set error") &&
-                    Expect(ContainsText(error, "program_path is null"),
-                           "Error should mention null program_path");
+                           "CreateIsolateFromKernel(nullptr) should set error") &&
+                    Expect(ContainsText(error, "invalid argument"),
+                           "Error should mention invalid argument");
   free(error);
   return pass;
 }
@@ -154,7 +154,7 @@ bool TestInitializeAndCleanupRoundTrip() {
 int main() {
   bool ok = true;
   ok = TestCleanupWithoutInit() && ok;
-  ok = TestProgramPathValidation() && ok;
+  ok = TestCreateFromKernelValidation() && ok;
   ok = TestRunEntryValidation() && ok;
   ok = TestCreateFromSourceValidation() && ok;
   ok = TestLoadAotInJitFlavor() && ok;
