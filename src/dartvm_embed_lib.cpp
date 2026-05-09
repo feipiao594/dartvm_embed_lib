@@ -192,8 +192,13 @@ static bool ReadProgramFile(const char* path,
 }
 
 static bool ShouldEnableVmService(void) {
+#if defined(DARTVM_EMBED_DEFAULT_PRECOMPILATION_FLAG)
+  // VM service and hot reload are not supported in AOT precompiled runtime.
+  return false;
+#else
   const char* hot_reload = getenv("DARTVM_EMBED_HOT_RELOAD");
   return hot_reload != nullptr && strcmp(hot_reload, "1") == 0;
+#endif
 }
 
 static bool ComputeSnapshotIsDontneedSafe(void) {
@@ -795,6 +800,11 @@ static Dart_Isolate CreateAndSetupServiceIsolate(const char *script_uri,
 
   // DIFF(main_impl): main_impl uses Options::* derived from CLI parsing.
   // Here we use embedder-controlled State() and keep most toggles at defaults.
+#if defined(DARTVM_EMBED_DEFAULT_PRECOMPILATION_FLAG)
+  // AOT runtime does not support the VM service. The VM may request a service
+  // isolate (non-PRODUCT AOT snapshots embed dart:vmservice), but we skip the
+  // HTTP listener since debugging/observability is unavailable in AOT.
+#else
   const bool wait_for_dds_to_advertise_service = false;
   const bool serve_devtools = true;
   if (!dart::bin::VmService::Setup(
@@ -816,6 +826,7 @@ static Dart_Isolate CreateAndSetupServiceIsolate(const char *script_uri,
     delete isolate_group_data;
     return nullptr;
   }
+#endif
 
   if (dart::bin::Options::compile_all()) {
     result = Dart_CompileAll();
@@ -1377,6 +1388,14 @@ Dart_Isolate DartVmEmbed_CreateIsolateFromKernel(
     return nullptr;
   }
 
+  const char* vm_flags[] = {"--no-precompilation"};
+  DartVmEmbedInitConfig init_config;
+  init_config.vm_flag_count = 1;
+  init_config.vm_flags = vm_flags;
+  if (!DartVmEmbed_Initialize(&init_config, error)) {
+    return nullptr;
+  }
+
   std::string sanitized_script_uri_storage;
   const char* sanitized_script_uri =
       SanitizePathLikeMain(script_uri, &sanitized_script_uri_storage);
@@ -1494,14 +1513,6 @@ Dart_Isolate DartVmEmbed_CreateIsolateFromSource(
     return nullptr;
   }
 
-  const char* vm_flags[] = {"--no-precompilation"};
-  DartVmEmbedInitConfig init_config;
-  init_config.vm_flag_count = 1;
-  init_config.vm_flags = vm_flags;
-  if (!DartVmEmbed_Initialize(&init_config, error)) {
-    return nullptr;
-  }
-
   const char* effective_uri = (script_uri != nullptr) ? script_uri : script_path;
   const char* effective_name = (name != nullptr) ? name : effective_uri;
   const char* effective_packages_config = EffectivePackagesConfig(nullptr);
@@ -1512,6 +1523,15 @@ Dart_Isolate DartVmEmbed_CreateIsolateFromSource(
       SanitizePathLikeMain(effective_uri, &sanitized_script_uri_storage);
   const char* sanitized_packages_config = SanitizePathLikeMain(
       effective_packages_config, &sanitized_packages_config_storage);
+
+  // Initialize VM first so DFE compilation infrastructure is ready.
+  const char* vm_flags[] = {"--no-precompilation"};
+  DartVmEmbedInitConfig init_config;
+  init_config.vm_flag_count = 1;
+  init_config.vm_flags = vm_flags;
+  if (!DartVmEmbed_Initialize(&init_config, error)) {
+    return nullptr;
+  }
 
   uint8_t* kernel_buffer = nullptr;
   intptr_t kernel_buffer_size = 0;
@@ -1526,8 +1546,9 @@ Dart_Isolate DartVmEmbed_CreateIsolateFromSource(
     if (compile_error != nullptr) {
       SetErrorIfUnset(error, compile_error);
       free(compile_error);
+    } else {
+      SetErrorIfUnset(error, "DartVmEmbed_CreateIsolateFromSource: compile failed.");
     }
-    SetErrorIfUnset(error, "DartVmEmbed_CreateIsolateFromSource: compile failed.");
     return nullptr;
   }
   if (compile_error != nullptr) {

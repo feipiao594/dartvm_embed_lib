@@ -51,8 +51,15 @@ function(_dartvm_embed_installable_path input_file out_install_rel)
   get_filename_component(_name "${input_file}" NAME)
   set(_install_rel "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/runtime/${DARTSDK_BUILD_DIR}/${_name}")
   install(FILES "${input_file}"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/runtime/${DARTSDK_BUILD_DIR}")
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/runtime/${DARTSDK_BUILD_DIR}"
+  )
   set(${out_install_rel} "${_install_rel}" PARENT_SCOPE)
+endfunction()
+
+function(_dartvm_embed_install_sdk_tool input_file)
+  install(PROGRAMS "${input_file}"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/sdk/${DARTSDK_BUILD_DIR}"
+  )
 endfunction()
 
 function(_dartvm_embed_add_variant flavor)
@@ -141,7 +148,6 @@ function(_dartvm_embed_add_variant flavor)
   endif()
 
   install(TARGETS ${_target}
-    EXPORT dartvm_embed_libTargets
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -150,3 +156,55 @@ endfunction()
 
 _dartvm_embed_add_variant(jit)
 _dartvm_embed_add_variant(aot)
+
+
+# check dart sdk file existence and install in standard Dart SDK layout.
+# The dart/dartaotruntime binaries expect the standard SDK layout:
+#   bin/dart, bin/snapshots/, lib/_internal/vm_platform_strong.dill
+set(_dartvm_sdk_base "${DART_DIR}/out/${DARTSDK_BUILD_DIR}")
+set(_dartvm_install_sdk_base "${CMAKE_INSTALL_DATADIR}/dartvm_embed_lib/sdk/${DARTSDK_BUILD_DIR}")
+
+set(_dartvm_sdk_dart_bin          "${_dartvm_sdk_base}/dart-sdk/bin/dart")
+set(_dartvm_sdk_dartaotruntime_bin "${_dartvm_sdk_base}/dart-sdk/bin/dartaotruntime")
+set(_dartvm_sdk_gen_snapshot_bin   "${_dartvm_sdk_base}/gen_snapshot")
+set(_dartvm_sdk_gen_kernel_snapshot "${_dartvm_sdk_base}/dart-sdk/bin/snapshots/gen_kernel_aot.dart.snapshot")
+set(_dartvm_sdk_vm_platform_dill   "${_dartvm_sdk_base}/dart-sdk/lib/_internal/vm_platform_strong.dill")
+set(_dartvm_sdk_snapshots_dir      "${_dartvm_sdk_base}/dart-sdk/bin/snapshots")
+
+foreach(_sdk_file IN ITEMS
+    "${_dartvm_sdk_dart_bin}"
+    "${_dartvm_sdk_dartaotruntime_bin}"
+    "${_dartvm_sdk_gen_snapshot_bin}"
+    "${_dartvm_sdk_gen_kernel_snapshot}"
+    "${_dartvm_sdk_vm_platform_dill}")
+  if(NOT EXISTS "${_sdk_file}")
+    message(FATAL_ERROR "Missing required SDK tool for install: ${_sdk_file}")
+  endif()
+endforeach()
+
+if(NOT EXISTS "${_dartvm_sdk_snapshots_dir}")
+  message(FATAL_ERROR "Missing snapshots directory: ${_dartvm_sdk_snapshots_dir}")
+endif()
+
+# dart, dartaotruntime → bin/
+install(PROGRAMS "${_dartvm_sdk_dart_bin}"
+  DESTINATION "${_dartvm_install_sdk_base}/bin")
+install(PROGRAMS "${_dartvm_sdk_dartaotruntime_bin}"
+  DESTINATION "${_dartvm_install_sdk_base}/bin")
+
+# snapshots/ → bin/snapshots/
+install(DIRECTORY "${_dartvm_sdk_snapshots_dir}/"
+  DESTINATION "${_dartvm_install_sdk_base}/bin/snapshots")
+
+# gen_snapshot stays at sdk root (not part of standard SDK layout)
+install(PROGRAMS "${_dartvm_sdk_gen_snapshot_bin}"
+  DESTINATION "${_dartvm_install_sdk_base}")
+
+# gen_kernel_aot.dart.snapshot is already in bin/snapshots/
+# platform dills → lib/_internal/
+# Both strong and strong_product are needed: the runtime uses strong, dart binary
+# with dart compile kernel uses strong_product.
+install(FILES
+  "${_dartvm_sdk_vm_platform_dill}"
+  "${_dartvm_sdk_base}/dart-sdk/lib/_internal/vm_platform_strong_product.dill"
+  DESTINATION "${_dartvm_install_sdk_base}/lib/_internal")

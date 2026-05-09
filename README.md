@@ -19,6 +19,13 @@ Notes:
 - `dartvm_embed_lib` is static-only.
 - This project always builds both static libraries in one pass.
 
+Install a local external copy:
+
+```bash
+cd dartvm_embed_lib
+cmake --install build --prefix lib_install
+```
+
 ## API
 
 Public header: `include/dartvm_embed_lib.h`
@@ -31,54 +38,55 @@ Public header: `include/dartvm_embed_lib.h`
 - `DartVmEmbed_RunLoop`
 - `DartVmEmbed_ShutdownIsolate`
 
-## Install As CMake Package
+## App Starter
+
+`example/CMakeLists.txt` owns the app-facing configuration:
+
+- `APP_RUNTIME_FLAVOR=jit|jit_source|aot`
+
+The internal helper under `example/internal/cmake/` only provides build-system
+configuration functions. It does not define the app target for you.
+
+By default, the starter consumes the installed library from `lib_install/`.
 
 ```bash
 cd dartvm_embed_lib
-cmake -S . -B build -G Ninja
-cmake --build build
-cmake --install build --prefix /tmp/dartvm_embed_install
+cmake --install build --prefix lib_install
+cmake -S example -B example/build -G Ninja \
+  -DAPP_RUNTIME_FLAVOR=jit \
+cmake --build example/build
 ```
 
-Then external projects can use:
-
-```cmake
-find_package(dartvm_embed_lib REQUIRED CONFIG)
-
-add_executable(my_app main.cpp)
-target_link_libraries(my_app PRIVATE DartVmEmbed::dartvm_embed_lib_jit) # or _aot
-```
-
-Configure external project with:
+Run the app:
 
 ```bash
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/tmp/dartvm_embed_install
+cd example/build
+./app
 ```
 
-## Helper For External CMake
+Hot reload workflow:
 
-Installed helper: `DartVmEmbedHelpers.cmake`
-
-Use this to reduce external CMake boilerplate for Dart artifact generation:
-
-```cmake
-dartvm_embed_add_program_target(my_program_artifact
-  DART_FILE "${CMAKE_CURRENT_SOURCE_DIR}/hello.dart"
-  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/program.bin"
-  PUBSPEC_DIR "${CMAKE_CURRENT_SOURCE_DIR}"   # optional
-  EXTRA_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/other.dart"
-  FLAVOR "jit" # or "aot"
-)
-
-add_executable(my_runner main.cpp)
-target_link_libraries(my_runner PRIVATE DartVmEmbed::dartvm_embed_lib_jit)
-add_dependencies(my_runner my_program_artifact)
+```bash
+cmake --install build --prefix lib_install
+cmake -S example -B example/build -G Ninja \
+  -DAPP_RUNTIME_FLAVOR=jit_source
+cmake --build example/build
+cd example/build
+./app
+cd ../..
+./reload_sources.sh
 ```
 
-`dartvm_embed_add_program_target` flavor behavior:
-- `jit`: generates kernel `program.bin`
-- `aot`: generates app-aot-elf `program.bin`
+Switch to AOT:
 
+```bash
+cmake --install build --prefix lib_install
+cmake -S example -B example/build -G Ninja \
+  -DAPP_RUNTIME_FLAVOR=aot
+cmake --build example/build
+cd example/build
+./app
+```
 
 ## Internal Design Doc (ZH)
 
