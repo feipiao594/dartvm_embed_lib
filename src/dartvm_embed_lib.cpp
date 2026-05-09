@@ -69,6 +69,7 @@ public:
   std::unordered_map<Dart_Isolate, DartVmEmbedAotElfHandle>
       isolate_loaded_aot_elfs;
   std::unordered_map<Dart_Isolate, std::vector<uint8_t>> isolate_kernel_buffers;
+  bool vm_service_started = false;
 
   // Mirrors runtime/bin/main_impl.cc global snapshot state for best
   // compatibility with isolate spawning (spawnUri) and service isolate setup.
@@ -851,7 +852,31 @@ static Dart_Isolate CreateAndSetupServiceIsolate(const char *script_uri,
     State().app_aot_elf_refcount++;
   }
 #endif
+  State().vm_service_started = true;
   return isolate;
+}
+
+static bool EnsureVmServiceStarted(const char* packages_config, char** error) {
+#if defined(DARTVM_EMBED_DEFAULT_PRECOMPILATION_FLAG)
+  (void)packages_config;
+  (void)error;
+  return true;
+#else
+  if (!ShouldEnableVmService() || State().vm_service_started) {
+    return true;
+  }
+
+  Dart_IsolateFlags service_flags;
+  Dart_IsolateFlagsInitialize(&service_flags);
+  service_flags.null_safety = true;
+  service_flags.snapshot_is_dontneed_safe = ComputeSnapshotIsDontneedSafe();
+  if (CreateAndSetupServiceIsolate(DART_VM_SERVICE_ISOLATE_NAME,
+                                   packages_config, &service_flags,
+                                   error) == nullptr) {
+    return false;
+  }
+  return true;
+#endif
 }
 
 static Dart_Isolate CreateIsolateGroupAndSetupHelper(bool is_main_isolate,
@@ -1356,6 +1381,7 @@ bool DartVmEmbed_Cleanup(char** error) {
   State().app_isolate_snapshot_data = nullptr;
   State().app_isolate_snapshot_instructions = nullptr;
   State().app_script_uri.clear();
+  State().vm_service_started = false;
   dart::embedder::Cleanup();
   return true;
 }
@@ -1472,6 +1498,10 @@ Dart_Isolate DartVmEmbed_CreateIsolateFromKernel(
 
   if (owned.owns_isolate || owned.owns_group) {
     State().owned_isolates[isolate] = owned;
+  }
+  if (!EnsureVmServiceStarted(EffectivePackagesConfig(nullptr), error)) {
+    DartVmEmbed_ShutdownIsolateByHandle(isolate);
+    return nullptr;
   }
   return isolate;
 }
@@ -1793,6 +1823,12 @@ Dart_Isolate DartVmEmbed_CreateIsolateFromAppSnapshot(
   if (owned.owns_isolate || owned.owns_group) {
     State().owned_isolates[isolate] = owned;
   }
+#if !defined(DARTVM_EMBED_DEFAULT_PRECOMPILATION_FLAG)
+  if (!EnsureVmServiceStarted(EffectivePackagesConfig(nullptr), error)) {
+    DartVmEmbed_ShutdownIsolateByHandle(isolate);
+    return nullptr;
+  }
+#endif
   return isolate;
 }
 
