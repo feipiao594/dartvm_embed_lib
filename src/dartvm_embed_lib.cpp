@@ -781,7 +781,6 @@ static Dart_Isolate CreateAndSetupServiceIsolate(const char *script_uri,
     delete isolate_group_data;
     return nullptr;
   }
-
   Dart_EnterScope();
   Dart_Handle result = Dart_SetLibraryTagHandler(dart::bin::Loader::LibraryTagHandler);
   if (SetErrorFromHandle(result, error)) {
@@ -800,11 +799,6 @@ static Dart_Isolate CreateAndSetupServiceIsolate(const char *script_uri,
 
   // DIFF(main_impl): main_impl uses Options::* derived from CLI parsing.
   // Here we use embedder-controlled State() and keep most toggles at defaults.
-#if defined(DARTVM_EMBED_DEFAULT_PRECOMPILATION_FLAG)
-  // AOT runtime does not support the VM service. The VM may request a service
-  // isolate (non-PRODUCT AOT snapshots embed dart:vmservice), but we skip the
-  // HTTP listener since debugging/observability is unavailable in AOT.
-#else
   const bool wait_for_dds_to_advertise_service = false;
   const bool serve_devtools = true;
   if (!dart::bin::VmService::Setup(
@@ -826,7 +820,6 @@ static Dart_Isolate CreateAndSetupServiceIsolate(const char *script_uri,
     delete isolate_group_data;
     return nullptr;
   }
-#endif
 
   if (dart::bin::Options::compile_all()) {
     result = Dart_CompileAll();
@@ -1202,10 +1195,7 @@ bool DartVmEmbed_Initialize(const DartVmEmbedInitConfig* config, char** error) {
     }
   }
   if (const char* port = getenv("DARTVM_EMBED_VM_SERVICE_PORT")) {
-    const int value = atoi(port);
-    if (value > 0) {
-      State().vm_service_port = value;
-    }
+    State().vm_service_port = atoi(port);
   }
   if (const char* auth = getenv("DARTVM_EMBED_VM_SERVICE_AUTH_CODES_DISABLED")) {
     State().vm_service_auth_codes_disabled = (strcmp(auth, "0") != 0);
@@ -1935,6 +1925,38 @@ bool DartVmEmbed_RunRootEntryOnIsolate(Dart_Isolate isolate,
   if (entered_isolate) {
     Dart_ExitIsolate();
   }
+  return ok;
+}
+
+bool DartVmEmbed_RunLoopOnIsolate(Dart_Isolate isolate, char** error) {
+  if (error != nullptr) {
+    *error = nullptr;
+  }
+  if (isolate == nullptr) {
+    SetErrorIfUnset(error, "DartVmEmbed_RunLoopOnIsolate: isolate is null.");
+    return false;
+  }
+
+  bool entered_isolate = false;
+  if (Dart_CurrentIsolate() == nullptr) {
+    Dart_EnterIsolate(isolate);
+    entered_isolate = true;
+  }
+
+  Dart_EnterScope();
+  Dart_Handle result = Dart_RunLoop();
+  const bool ok = !Dart_IsError(result);
+  if (Dart_IsError(result)) {
+    if (error != nullptr) {
+      *error = DupMessage(Dart_GetError(result));
+    }
+  }
+  Dart_ExitScope();
+
+  if (entered_isolate) {
+    Dart_ExitIsolate();
+  }
+
   return ok;
 }
 
