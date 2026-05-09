@@ -745,6 +745,13 @@ static Dart_Isolate CreateAndSetupServiceIsolate(const char *script_uri,
   ASSERT(script_uri != nullptr);
   ASSERT(flags != nullptr);
 
+#if defined(DARTVM_EMBED_DEFAULT_PRECOMPILATION_FLAG)
+  // AOT runtime does not support the VM service. The VM may request a service
+  // isolate (non-PRODUCT AOT snapshots embed dart:vmservice), but we skip the
+  // HTTP listener since debugging/observability is unavailable in AOT.
+  return nullptr;
+#endif
+
   Dart_Isolate isolate = nullptr;
   auto* isolate_group_data =
       new dart::bin::IsolateGroupData(script_uri, packages_config, nullptr,
