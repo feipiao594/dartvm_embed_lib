@@ -66,8 +66,7 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DDARTVM_INSTALL_DARTSDK_BUNDLE=ON
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --parallel
@@ -77,11 +76,14 @@ jobs:
 
       - name: Verify packaged bundle
         run: |
-          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/dart
-          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/dartaotruntime
-          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/bin/snapshots/gen_kernel_aot.dart.snapshot
-          test -f build/package/share/dartvm_embed_lib/dart-sdk/out/ReleaseX64/dart-sdk/lib/_internal/vm_platform_strong.dill
-          test -f build/package/share/dartvm_embed_lib/runtime/ReleaseX64/gen_snapshot
+          test -f build/package/share/dartvm_embed_lib/sdk/ReleaseX64/bin/dart
+          test -f build/package/share/dartvm_embed_lib/sdk/ReleaseX64/bin/dartaotruntime
+          test -f build/package/share/dartvm_embed_lib/sdk/ReleaseX64/bin/snapshots/gen_kernel_aot.dart.snapshot
+          test -f build/package/share/dartvm_embed_lib/sdk/ReleaseX64/lib/_internal/vm_platform_strong.dill
+          test -f build/package/share/dartvm_embed_lib/sdk/ReleaseX64/lib/_internal/vm_platform_strong_product.dill
+          test -f build/package/share/dartvm_embed_lib/sdk/ReleaseX64/gen_snapshot
+          test -f build/package/share/dartvm_embed_lib/runtime/ReleaseX64/libdart_embedder_runtime_jit_static.a
+          test -f build/package/share/dartvm_embed_lib/runtime/ReleaseX64/libdart_embedder_runtime_aot_precompiled_static.a
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
